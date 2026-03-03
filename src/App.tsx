@@ -31,7 +31,6 @@ import {
   Announcement,
 } from "./types";
 import { storageService, initStorage } from "./services/storageService";
-import logo from "../images/logo.svg";
 
 // Initialize storage
 initStorage();
@@ -124,7 +123,11 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
         <div className="p-8 text-center border-b border-slate-200">
           <div className="flex flex-col items-center justify-center">
             <div className="flex justify-center mb-4">
-              <img src={logo} alt="Generali logo" className="h-32 w-auto p-2" />
+              <img
+                src="/images/logo.svg"
+                alt="Generali logo"
+                className="h-32 w-auto p-2"
+              />
             </div>
             <h1 className="text-4xl font-bold text-generali-red">E-Hospital</h1>
             <p className="text-generali-red text-md mt-1">
@@ -243,10 +246,12 @@ const Sidebar = ({
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col h-full">
       <div className="p-6 border-bottom border-slate-100">
         <div className="flex items-center gap-3 mb-6">
-          <img src={logo} alt="Generali logo" className="h-8 w-auto" />
-          <span className="font-bold text-lg text-generali-red">
-            E-Hospital
-          </span>
+          <img
+            src="/images/logo.svg"
+            alt="Generali logo"
+            className="h-8 w-auto"
+          />
+          <span className="font-bold text-lg text-generali-red">E-Hospital</span>
         </div>
       </div>
 
