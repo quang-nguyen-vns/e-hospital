@@ -388,7 +388,7 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-4">
       <header className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Welcome back!</h1>
@@ -403,7 +403,7 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
       </header>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Total Claims", value: stats.total.count + 339, icon: FileText, trend: "+12% from last month", bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-500" },
           { label: "Pending Review", value: stats.pending.count + 37, icon: Clock, trend: "Avg. 2.4h response", bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-500" },
@@ -428,7 +428,7 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
       </div>
 
       {/* VIP & Over-SLA highlight cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="generali-card p-6 flex items-center gap-5 border-l-4 border-amber-400">
           <div className="p-4 bg-amber-50 rounded-2xl"><Star className="w-7 h-7 text-amber-500" /></div>
           <div>
@@ -456,7 +456,7 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
       </div>
 
       {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="generali-card p-6">
           <h2 className="font-bold text-lg mb-1">Claim Types Distribution</h2>
           <p className="text-xs text-slate-400 mb-4">Breakdown by claim category — last 30 days</p>
@@ -470,7 +470,7 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
       </div>
 
       {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="generali-card p-6">
           <h2 className="font-bold text-lg mb-1">VIP Cases by Type</h2>
           <p className="text-xs text-slate-400 mb-4">VIP patient claims by claim category</p>
@@ -721,7 +721,7 @@ const SearchPage = ({
               >
                 <div className="generali-card p-8">
                   <div className="flex justify-between items-start mb-8">
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
                       <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
                         <UserIcon className="w-10 h-10" />
                       </div>
@@ -1030,7 +1030,7 @@ const ClaimBookingPage = ({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Claim Type
@@ -1685,7 +1685,7 @@ const HistoryPage = ({ user }: { user: User }) => {
                             Cancel
                           </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                               New Status
@@ -2023,7 +2023,7 @@ const KnowledgeBasePage = () => {
       </div>
 
       {/* Document Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(doc => (
           <motion.div key={doc.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="generali-card p-6 flex flex-col gap-4 group hover:shadow-xl transition-all duration-300">
             <div className="flex items-start gap-4">
@@ -2271,7 +2271,7 @@ export default function App() {
               {activeTab === "users" ? "User Management" : activeTab === "knowledge" ? "Knowledge Base" : activeTab.replace("-", " ")}
             </h2>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <button className="relative text-slate-400 hover:text-slate-600 transition-colors">
               <Bell className="w-6 h-6" />
               <span className="absolute top-0 right-0 w-2 h-2 bg-generali-red rounded-full border-2 border-white"></span>
