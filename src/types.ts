@@ -4,6 +4,19 @@ export interface User {
   username: string;
   role: string;
   hospital: string;
+  hospitalName?: string;
+}
+
+export interface HospitalUser {
+  id: number;
+  name: string;
+  email: string;
+  username: string;
+  role: 'receptionist' | 'nurse_coordinator' | 'billing_staff' | 'it_admin' | 'doctor';
+  department: string;
+  status: 'active' | 'inactive';
+  lastLogin: string;
+  createdAt: string;
 }
 
 export interface Insured {
@@ -62,4 +75,16 @@ export interface Announcement {
   content: string;
   type: string;
   created_at: string;
+}
+
+export interface KnowledgeDocument {
+  id: number;
+  title: string;
+  description: string;
+  category: 'user_manual' | 'policy' | 'form' | 'training' | 'announcement';
+  fileType: 'pdf' | 'doc' | 'video' | 'xlsx';
+  fileSize: string;
+  version: string;
+  updatedAt: string;
+  downloadCount: number;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Search,
@@ -17,11 +17,23 @@ import {
   X,
   ArrowLeft,
   Download,
-  Printer,
   Upload,
   File,
+  Building2,
+  Users,
+  BookOpen,
+  Star,
+  AlertTriangle,
+  TrendingUp,
+  Edit2,
+  Trash2,
+  UserPlus,
+  Filter,
+  Video,
+  FileImage,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import ReactECharts from 'echarts-for-react';
 import {
   User,
   Insured,
@@ -29,6 +41,7 @@ import {
   Claim,
   ClaimDocument,
   Announcement,
+  HospitalUser,
 } from "./types";
 import { storageService, initStorage } from "./services/storageService";
 
@@ -235,6 +248,18 @@ const Sidebar = ({
     { id: "search", label: "Policy Search", icon: Search },
     { id: "history", label: "Claim History", icon: History },
     {
+      id: "users",
+      label: "User Management",
+      icon: Users,
+      hidden: user.role !== "hospital_admin",
+    },
+    {
+      id: "knowledge",
+      label: "Knowledge Base",
+      icon: BookOpen,
+      hidden: user.role !== "hospital_admin" && user.role !== "admin",
+    },
+    {
       id: "admin",
       label: "Administration",
       icon: UserIcon,
@@ -262,11 +287,10 @@ const Sidebar = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                activeTab === item.id
-                  ? "bg-generali-red text-white shadow-lg shadow-generali-red/20"
-                  : "text-slate-600 hover:bg-slate-50"
-              }`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === item.id
+                ? "bg-generali-red text-white shadow-lg shadow-generali-red/20"
+                : "text-slate-600 hover:bg-slate-50"
+                }`}
             >
               <item.icon className="w-5 h-5" />
               <span className="font-medium">{item.label}</span>
@@ -308,6 +332,61 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
 
   if (!stats) return <div className="p-8">Loading...</div>;
 
+  // --- Mock chart data ---
+  const claimTypeChart = {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: '0%', left: 'center', itemGap: 12, textStyle: { fontSize: 11 } },
+    color: ['#3b82f6', '#8b5cf6', '#f97316', '#10b981'],
+    series: [{
+      name: 'Claim Types',
+      type: 'pie',
+      radius: ['45%', '72%'],
+      center: ['50%', '44%'],
+      avoidLabelOverlap: false,
+      label: { show: false },
+      emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
+      data: [
+        { value: 142, name: 'OPD' },
+        { value: 95, name: 'IPD' },
+        { value: 61, name: 'ER' },
+        { value: 41, name: 'Dental' },
+      ],
+    }],
+  };
+
+  const monthlyTrendChart = {
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', boundaryGap: false, data: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'], axisLine: { lineStyle: { color: '#e2e8f0' } }, axisLabel: { color: '#94a3b8', fontSize: 11 } },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    color: ['#ef4444', '#3b82f6'],
+    series: [
+      { name: 'Submitted', type: 'line', smooth: true, areaStyle: { opacity: 0.08 }, data: [48, 62, 55, 71, 83, 62], lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 },
+      { name: 'Approved', type: 'line', smooth: true, areaStyle: { opacity: 0.08 }, data: [40, 55, 48, 64, 75, 58], lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 },
+    ],
+    legend: { data: ['Submitted', 'Approved'], bottom: 0, textStyle: { fontSize: 11 } },
+  };
+
+  const vipCasesChart = {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', data: ['OPD', 'IPD', 'ER', 'Dental'], axisLabel: { color: '#94a3b8', fontSize: 11 }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    color: ['#f59e0b'],
+    series: [{ name: 'VIP Cases', type: 'bar', barWidth: '50%', data: [18, 34, 12, 5], itemStyle: { borderRadius: [6, 6, 0, 0] } }],
+    legend: { data: ['VIP Cases'], bottom: 0, textStyle: { fontSize: 11 } },
+  };
+
+  const overSlaChart = {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '8%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    yAxis: { type: 'category', data: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'], axisLabel: { color: '#94a3b8', fontSize: 11 }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
+    color: ['#ef4444'],
+    series: [{ name: 'Over-SLA', type: 'bar', barWidth: '50%', data: [7, 12, 5, 9, 4], itemStyle: { borderRadius: [0, 6, 6, 0] }, label: { show: true, position: 'right', color: '#64748b', fontSize: 11 } }],
+    legend: { data: ['Over-SLA'], bottom: 0, textStyle: { fontSize: 11 } },
+  };
+
   return (
     <div className="p-8 space-y-8">
       <header className="flex justify-between items-end">
@@ -323,116 +402,104 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
         </button>
       </header>
 
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          {
-            label: "Total Claims",
-            value: stats.total.count,
-            icon: FileText,
-            color: "blue",
-            trend: "+12% from last month",
-            bg: "bg-blue-50",
-            text: "text-blue-600",
-            border: "border-blue-500",
-          },
-          {
-            label: "Pending Review",
-            value: stats.pending.count,
-            icon: Clock,
-            color: "amber",
-            trend: "Avg. 2.4h response",
-            bg: "bg-amber-50",
-            text: "text-amber-600",
-            border: "border-amber-500",
-          },
-          {
-            label: "Approved",
-            value: stats.approved.count,
-            icon: CheckCircle2,
-            color: "emerald",
-            trend: "94% success rate",
-            bg: "bg-emerald-50",
-            text: "text-emerald-600",
-            border: "border-emerald-500",
-          },
-          {
-            label: "Rejected",
-            value: stats.rejected.count,
-            icon: AlertCircle,
-            color: "red",
-            trend: "-2% from last month",
-            bg: "bg-red-50",
-            text: "text-red-600",
-            border: "border-red-500",
-          },
+          { label: "Total Claims", value: stats.total.count + 339, icon: FileText, trend: "+12% from last month", bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-500" },
+          { label: "Pending Review", value: stats.pending.count + 37, icon: Clock, trend: "Avg. 2.4h response", bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-500" },
+          { label: "Approved", value: stats.approved.count + 276, icon: CheckCircle2, trend: "94% success rate", bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-500" },
+          { label: "Rejected", value: stats.rejected.count + 26, icon: AlertCircle, trend: "-2% from last month", bg: "bg-red-50", text: "text-red-600", border: "border-red-500" },
         ].map((stat, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.1 }}
-            className={`generali-card p-6 relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-b-4 ${stat.border}`}
-          >
+          <motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }}
+            className={`generali-card p-6 relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-b-4 ${stat.border}`}>
             <div className="flex justify-between items-start mb-4">
-              <div
-                className={`p-3 rounded-2xl ${stat.bg} ${stat.text} group-hover:scale-110 transition-transform`}
-              >
+              <div className={`p-3 rounded-2xl ${stat.bg} ${stat.text} group-hover:scale-110 transition-transform`}>
                 <stat.icon className="w-6 h-6" />
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                {stat.trend}
-              </span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.trend}</span>
             </div>
             <div>
-              <p className="text-sm text-slate-500 font-medium mb-1">
-                {stat.label}
-              </p>
-              <p className="text-3xl font-bold text-slate-900 tracking-tight">
-                {stat.value}
-              </p>
+              <p className="text-sm text-slate-500 font-medium mb-1">{stat.label}</p>
+              <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
             </div>
-            <div
-              className={`absolute -right-4 -bottom-4 w-24 h-24 ${stat.bg}/50 rounded-full blur-2xl group-hover:scale-150 transition-transform`}
-            ></div>
+            <div className={`absolute -right-4 -bottom-4 w-24 h-24 ${stat.bg}/50 rounded-full blur-2xl group-hover:scale-150 transition-transform`}></div>
           </motion.div>
         ))}
       </div>
 
+      {/* VIP & Over-SLA highlight cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="generali-card p-6 flex items-center gap-5 border-l-4 border-amber-400">
+          <div className="p-4 bg-amber-50 rounded-2xl"><Star className="w-7 h-7 text-amber-500" /></div>
+          <div>
+            <p className="text-sm text-slate-500 font-medium">VIP Cases (This Month)</p>
+            <p className="text-3xl font-bold text-amber-600">69</p>
+            <p className="text-xs text-slate-400 mt-0.5">+8 from last month</p>
+          </div>
+        </div>
+        <div className="generali-card p-6 flex items-center gap-5 border-l-4 border-red-400">
+          <div className="p-4 bg-red-50 rounded-2xl"><AlertTriangle className="w-7 h-7 text-red-500" /></div>
+          <div>
+            <p className="text-sm text-slate-500 font-medium">Over-SLA Claims</p>
+            <p className="text-3xl font-bold text-red-600">37</p>
+            <p className="text-xs text-slate-400 mt-0.5">Target: &lt;10% of total</p>
+          </div>
+        </div>
+        <div className="generali-card p-6 flex items-center gap-5 border-l-4 border-teal-400">
+          <div className="p-4 bg-teal-50 rounded-2xl"><TrendingUp className="w-7 h-7 text-teal-500" /></div>
+          <div>
+            <p className="text-sm text-slate-500 font-medium">Avg. Processing Time</p>
+            <p className="text-3xl font-bold text-teal-600">2.4h</p>
+            <p className="text-xs text-slate-400 mt-0.5">SLA target: 4h</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="generali-card p-6">
+          <h2 className="font-bold text-lg mb-1">Claim Types Distribution</h2>
+          <p className="text-xs text-slate-400 mb-4">Breakdown by claim category — last 30 days</p>
+          <ReactECharts option={claimTypeChart} style={{ height: 260 }} />
+        </div>
+        <div className="generali-card p-6">
+          <h2 className="font-bold text-lg mb-1">Monthly Claims Trend</h2>
+          <p className="text-xs text-slate-400 mb-4">Submitted vs. Approved — last 6 months</p>
+          <ReactECharts option={monthlyTrendChart} style={{ height: 260 }} />
+        </div>
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="generali-card p-6">
+          <h2 className="font-bold text-lg mb-1">VIP Cases by Type</h2>
+          <p className="text-xs text-slate-400 mb-4">VIP patient claims by claim category</p>
+          <ReactECharts option={vipCasesChart} style={{ height: 220 }} />
+        </div>
+        <div className="generali-card p-6">
+          <h2 className="font-bold text-lg mb-1">Over-SLA Claims by Week</h2>
+          <p className="text-xs text-slate-400 mb-4">Claims exceeding 48h resolution — current month</p>
+          <ReactECharts option={overSlaChart} style={{ height: 220 }} />
+        </div>
+      </div>
+
+      {/* Announcements & Sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="generali-card">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <h2 className="font-bold text-lg">Recent Announcements</h2>
-              <button className="text-sm text-generali-red font-medium hover:underline">
-                View All
-              </button>
+              <button className="text-sm text-generali-red font-medium hover:underline">View All</button>
             </div>
             <div className="divide-y divide-slate-100">
               {announcements.map((ann, i) => (
-                <div
-                  key={i}
-                  className="p-6 hover:bg-slate-50 transition-colors cursor-pointer group"
-                >
+                <div key={i} className="p-6 hover:bg-slate-50 transition-colors cursor-pointer group">
                   <div className="flex justify-between items-start mb-2">
-                    <span
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
-                        ann.type === "Maintenance"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {ann.type}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      {new Date(ann.created_at).toLocaleDateString()}
-                    </span>
+                    <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${ann.type === "Maintenance" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>{ann.type}</span>
+                    <span className="text-xs text-slate-400">{new Date(ann.created_at).toLocaleDateString()}</span>
                   </div>
-                  <h3 className="font-bold text-slate-800 group-hover:text-generali-red transition-colors">
-                    {ann.title}
-                  </h3>
-                  <p className="text-sm text-slate-600 mt-1 line-clamp-2">
-                    {ann.content}
-                  </p>
+                  <h3 className="font-bold text-slate-800 group-hover:text-generali-red transition-colors">{ann.title}</h3>
+                  <p className="text-sm text-slate-600 mt-1 line-clamp-2">{ann.content}</p>
                 </div>
               ))}
             </div>
@@ -440,48 +507,25 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
         </div>
 
         <div className="space-y-6">
-          <div className="generali-card p-6 bg-generali-red text-white">
+          <div className="generali-card p-6 bg-generali-red">
             <h2 className="font-bold text-lg mb-2">Need Help?</h2>
-            <p className="text-white/80 text-sm mb-6">
-              Access our training videos and user manuals to get the most out of
-              the system.
-            </p>
+            <p className="text-sm mb-6">Access our training videos and user manuals to get the most out of the system.</p>
             <div className="space-y-3">
-              <button className="w-full bg-white/20 hover:bg-white/30 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-between transition-all">
-                User Guide (PDF)
-                <Download className="w-4 h-4" />
-              </button>
-              <button className="w-full bg-white/20 hover:bg-white/30 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-between transition-all">
-                Training Videos
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <button className="w-full bg-white/20 hover:bg-white/30 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-between transition-all">User Guide (PDF)<Download className="w-4 h-4" /></button>
+              <button className="w-full bg-white/20 hover:bg-white/30 py-2 px-4 rounded-lg text-sm font-medium flex items-center justify-between transition-all">Training Videos<ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
-
           <div className="generali-card p-6">
             <h2 className="font-bold text-lg mb-4">System Status</h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Claim Backend</span>
-                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  ONLINE
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Policy DB</span>
-                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  ONLINE
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">MFA Service</span>
-                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  ONLINE
-                </span>
-              </div>
+              {[['Claim Backend', true], ['Policy DB', true], ['MFA Service', true]].map(([name, ok]) => (
+                <div key={String(name)} className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">{String(name)}</span>
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>ONLINE
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -489,6 +533,9 @@ const Dashboard = ({ onSearchClick }: { onSearchClick: () => void }) => {
     </div>
   );
 };
+
+
+
 
 const SearchPage = ({
   onSelectInsured,
@@ -785,16 +832,16 @@ const SearchPage = ({
                   </div>
                 </div>
 
-                <div className="generali-card p-6 bg-slate-900 text-white">
+                <div className="generali-card p-6 bg-slate-900">
                   <div className="flex items-start gap-4">
                     <div className="p-3 bg-white/10 rounded-xl">
-                      <ShieldCheck className="w-6 h-6 text-white" />
+                      <ShieldCheck className="w-6 h-6" />
                     </div>
                     <div>
                       <h4 className="font-bold mb-1">
                         Pre-Authorization Required
                       </h4>
-                      <p className="text-sm text-white/60 leading-relaxed">
+                      <p className="text-sm leading-relaxed">
                         For IPD treatments exceeding ฿50,000, please ensure
                         pre-authorization is obtained before admission to
                         guarantee cashless payment.
@@ -1691,7 +1738,330 @@ const HistoryPage = ({ user }: { user: User }) => {
   );
 };
 
+// --- Hospital User Management ---
+
+type HospitalUserRole = 'receptionist' | 'nurse_coordinator' | 'billing_staff' | 'it_admin' | 'doctor';
+
+const ROLE_LABELS: Record<HospitalUserRole, string> = {
+  receptionist: 'Receptionist',
+  nurse_coordinator: 'Nurse Coordinator',
+  billing_staff: 'Billing Staff',
+  it_admin: 'IT Admin',
+  doctor: 'Doctor',
+};
+
+const ROLE_COLORS: Record<HospitalUserRole, string> = {
+  receptionist: 'bg-blue-100 text-blue-700',
+  nurse_coordinator: 'bg-purple-100 text-purple-700',
+  billing_staff: 'bg-amber-100 text-amber-700',
+  it_admin: 'bg-slate-100 text-slate-700',
+  doctor: 'bg-emerald-100 text-emerald-700',
+};
+
+const HospitalUserManagement = () => {
+
+  const [users, setUsers] = useState<HospitalUser[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<HospitalUser | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [form, setForm] = useState({ name: '', email: '', username: '', role: 'receptionist' as HospitalUserRole, department: '' });
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+  const fetchUsers = () => { storageService.getHospitalUsers().then(setUsers); };
+  useEffect(() => { fetchUsers(); }, []);
+
+  const openCreate = () => { setEditingUser(null); setForm({ name: '', email: '', username: '', role: 'receptionist', department: '' }); setShowModal(true); };
+  const openEdit = (u: HospitalUser) => { setEditingUser(u); setForm({ name: u.name, email: u.email, username: u.username, role: u.role, department: u.department }); setShowModal(true); };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editingUser) {
+        await storageService.updateHospitalUser(editingUser.id, form);
+      } else {
+        await storageService.createHospitalUser({ ...form, status: 'active' });
+      }
+      fetchUsers(); setShowModal(false);
+    } finally { setSaving(false); }
+  };
+
+  const handleToggleStatus = async (u: HospitalUser) => {
+    await storageService.deactivateHospitalUser(u.id, u.status === 'active' ? 'inactive' : 'active');
+    fetchUsers();
+  };
+
+  const handleDelete = async (id: number) => {
+    await storageService.deleteHospitalUser(id);
+    setDeleteConfirm(null); fetchUsers();
+  };
+
+  const filtered = users.filter(u => {
+    const matchSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchRole = filterRole === 'all' || u.role === filterRole;
+    return matchSearch && matchRole;
+  });
+
+  const formatDate = (d: string) => d === 'Never' ? 'Never' : new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  return (
+    <div className="p-8 space-y-8">
+      <header className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
+          <p className="text-slate-500 mt-1">Manage hospital staff accounts and role-based access.</p>
+        </div>
+        <button onClick={openCreate} className="generali-btn-primary">
+          <UserPlus className="w-5 h-5" /> Add User
+        </button>
+      </header>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Users', value: users.length, color: 'text-slate-800', bg: 'bg-white' },
+          { label: 'Active', value: users.filter(u => u.status === 'active').length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Inactive', value: users.filter(u => u.status === 'inactive').length, color: 'text-slate-500', bg: 'bg-slate-50' },
+          { label: 'Roles', value: [...new Set(users.map(u => u.role))].length, color: 'text-generali-red', bg: 'bg-red-50' },
+        ].map((s, i) => (
+          <div key={i} className={`generali-card p-5 ${s.bg}`}>
+            <p className="text-sm text-slate-500">{s.label}</p>
+            <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input type="text" placeholder="Search by name or email..." className="generali-input pl-9" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        </div>
+        <select className="generali-input max-w-[200px]" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+          <option value="all">All Roles</option>
+          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <span className="text-sm text-slate-400 ml-auto">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Table */}
+      <div className="generali-card overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              {['User', 'Role', 'Department', 'Status', 'Last Login', 'Actions'].map(h => (
+                <th key={h} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filtered.map(u => (
+              <tr key={u.id} className={`hover:bg-slate-50 transition-colors ${u.status === 'inactive' ? 'opacity-60' : ''}`}>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-gradient-to-br from-generali-red/20 to-generali-red/5 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-generali-red">{u.name.split(' ').map(n => n[0]).join('').slice(0, 2)}</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800 text-sm">{u.name}</p>
+                      <p className="text-xs text-slate-400">{u.email}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${ROLE_COLORS[u.role]}`}>{ROLE_LABELS[u.role]}</span>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">{u.department}</td>
+                <td className="px-6 py-4">
+                  <span className={`flex items-center gap-1.5 text-xs font-bold w-fit ${u.status === 'active' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${u.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                    {u.status === 'active' ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-500">{formatDate(u.lastLogin)}</td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleToggleStatus(u)} className={`p-1.5 rounded-lg transition-colors text-xs font-bold px-2 ${u.status === 'active' ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`} title={u.status === 'active' ? 'Deactivate' : 'Reactivate'}>
+                      {u.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button onClick={() => setDeleteConfirm(u.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-6 py-16 text-center text-slate-400"><Users className="w-10 h-10 mx-auto mb-3 opacity-30" /><p>No users found.</p></td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create/Edit Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 className="text-xl font-bold text-slate-900">{editingUser ? 'Edit User' : 'Add New User'}</h2>
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="w-5 h-5 text-slate-500" /></button>
+              </div>
+              <div className="p-6 space-y-5">
+                {[
+                  { label: 'Full Name', key: 'name', type: 'text', placeholder: 'e.g. Somchai Phongsakorn' },
+                  { label: 'Email', key: 'email', type: 'email', placeholder: 'e.g. somchai@hospital.th' },
+                  { label: 'Username', key: 'username', type: 'text', placeholder: 'e.g. somchai.p' },
+                  { label: 'Department', key: 'department', type: 'text', placeholder: 'e.g. Outpatient Registration' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{f.label}</label>
+                    <input type={f.type} className="generali-input" placeholder={f.placeholder} value={(form as any)[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                  <select className="generali-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value as HospitalUserRole })}>
+                    {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-100 flex justify-end gap-3">
+                <button onClick={() => setShowModal(false)} className="generali-btn-secondary px-6">Cancel</button>
+                <button onClick={handleSave} disabled={saving || !form.name || !form.email} className="generali-btn-primary px-8">{saving ? 'Saving...' : editingUser ? 'Save Changes' : 'Create User'}</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirm */}
+      <AnimatePresence>
+        {deleteConfirm !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 className="w-8 h-8 text-red-600" /></div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">Delete User?</h3>
+              <p className="text-slate-500 mb-6">This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteConfirm(null)} className="generali-btn-secondary flex-1">Cancel</button>
+                <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2 px-4 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors">Delete</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// --- Knowledge Base / Documents ---
+const MOCK_DOCUMENTS = [
+  { id: 1, title: 'E-Hospital User Guide v2.1', description: 'Complete user manual for hospital staff covering all portal features and workflows.', category: 'user_manual', fileType: 'pdf', fileSize: '4.2 MB', version: 'v2.1', updatedAt: '2026-02-15', downloadCount: 342 },
+  { id: 2, title: 'Cashless Claim Policy 2025', description: 'Official policy document covering eligibility, limits, and procedures for cashless claims.', category: 'policy', fileType: 'pdf', fileSize: '1.8 MB', version: 'v3.0', updatedAt: '2026-01-01', downloadCount: 891 },
+  { id: 3, title: 'IPD Admission Form (TH/EN)', description: 'Bilingual form required for all inpatient department admission and cashless pre-authorization.', category: 'form', fileType: 'pdf', fileSize: '512 KB', version: 'v1.4', updatedAt: '2025-11-20', downloadCount: 2104 },
+  { id: 4, title: 'OPD Claim Submission Training', description: 'Walk-through video tutorial for submitting outpatient claims through the portal.', category: 'training', fileType: 'video', fileSize: '245 MB', version: 'v1.0', updatedAt: '2026-01-10', downloadCount: 178 },
+  { id: 5, title: 'Dental Claim Checklist', description: 'Required documentation checklist for dental treatment claims and pre-authorizations.', category: 'form', fileType: 'pdf', fileSize: '320 KB', version: 'v1.1', updatedAt: '2025-12-05', downloadCount: 567 },
+  { id: 6, title: 'SLA & Claims Processing Guidelines', description: 'Service level agreement document detailing response times, escalation paths, and KPIs.', category: 'policy', fileType: 'pdf', fileSize: '950 KB', version: 'v2.2', updatedAt: '2026-01-15', downloadCount: 423 },
+  { id: 7, title: 'RBAC & Portal Security Policy', description: 'Information security policy covering user access, password policy, and audit logging.', category: 'policy', fileType: 'pdf', fileSize: '780 KB', version: 'v1.3', updatedAt: '2026-02-01', downloadCount: 210 },
+  { id: 8, title: 'Hospital Admin Quick Start Guide', description: 'A concise guide for hospital administrators on onboarding, user setup, and first steps.', category: 'user_manual', fileType: 'pdf', fileSize: '1.1 MB', version: 'v1.0', updatedAt: '2026-02-20', downloadCount: 95 },
+  { id: 9, title: 'Claim Status Tracking Tutorial', description: 'Step-by-step training video showing how to track claim statuses and respond to queries.', category: 'training', fileType: 'video', fileSize: '189 MB', version: 'v1.0', updatedAt: '2025-10-30', downloadCount: 143 },
+  { id: 10, title: 'ER Pre-Authorization Form', description: 'Emergency room pre-authorization request form for cases exceeding standard thresholds.', category: 'form', fileType: 'pdf', fileSize: '280 KB', version: 'v1.2', updatedAt: '2025-09-15', downloadCount: 733 },
+  { id: 11, title: '2026 Benefit Schedule & Fee Table', description: 'Updated fee schedule and benefit limits applicable for all plans starting January 2026.', category: 'policy', fileType: 'doc', fileSize: '2.4 MB', version: 'v2026.1', updatedAt: '2026-01-01', downloadCount: 654 },
+  { id: 12, title: 'System Admin & User Role Training', description: 'Training module for IT administrators on user provisioning, roles, and system settings.', category: 'training', fileType: 'video', fileSize: '320 MB', version: 'v1.0', updatedAt: '2026-02-25', downloadCount: 62 },
+];
+
+type DocCategory = 'all' | 'user_manual' | 'policy' | 'form' | 'training';
+const CATEGORY_LABELS: Record<DocCategory, string> = { all: 'All', user_manual: 'User Manuals', policy: 'Policies', form: 'Forms', training: 'Training' };
+const FILE_COLORS: Record<string, string> = { pdf: 'bg-red-100 text-red-600', doc: 'bg-blue-100 text-blue-600', video: 'bg-purple-100 text-purple-600', xlsx: 'bg-green-100 text-green-600' };
+
+const KnowledgeBasePage = () => {
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState<DocCategory>('all');
+
+  const filtered = MOCK_DOCUMENTS.filter(d => {
+    const matchCat = category === 'all' || d.category === category;
+    const matchSearch = d.title.toLowerCase().includes(search.toLowerCase()) || d.description.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const FileIcon = ({ type }: { type: string }) => {
+    if (type === 'video') return <Video className="w-6 h-6" />;
+    if (type === 'doc') return <FileText className="w-6 h-6" />;
+    return <FileText className="w-6 h-6" />;
+  };
+
+  return (
+    <div className="p-8 space-y-8">
+      <header className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Knowledge Base</h1>
+          <p className="text-slate-500 mt-1">Access user manuals, policy documents, forms, and training materials.</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-slate-500">{filtered.length} document{filtered.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-slate-400">Last updated: Mar 3, 2026</p>
+        </div>
+      </header>
+
+      {/* Search */}
+      <div className="relative max-w-xl">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <input type="text" placeholder="Search documents..." className="generali-input pl-12 py-3 text-base" value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+
+      {/* Category Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {(Object.keys(CATEGORY_LABELS) as DocCategory[]).map(cat => {
+          const count = cat === 'all' ? MOCK_DOCUMENTS.length : MOCK_DOCUMENTS.filter(d => d.category === cat).length;
+          return (
+            <button key={cat} onClick={() => setCategory(cat)} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${category === cat ? 'bg-generali-red text-white shadow-lg shadow-generali-red/20' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}>
+              {CATEGORY_LABELS[cat]} <span className="ml-1 opacity-60">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Document Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {filtered.map(doc => (
+          <motion.div key={doc.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="generali-card p-6 flex flex-col gap-4 group hover:shadow-xl transition-all duration-300">
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-xl flex-shrink-0 ${FILE_COLORS[doc.fileType] || 'bg-slate-100 text-slate-600'}`}>
+                <FileIcon type={doc.fileType} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${doc.category === 'policy' ? 'bg-amber-100 text-amber-700' : doc.category === 'form' ? 'bg-green-100 text-green-700' : doc.category === 'training' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>{CATEGORY_LABELS[doc.category as DocCategory]}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{doc.version}</span>
+                </div>
+                <h3 className="font-bold text-slate-800 group-hover:text-generali-red transition-colors leading-snug">{doc.title}</h3>
+              </div>
+            </div>
+            <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">{doc.description}</p>
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-100">
+              <span>{doc.fileSize} • Updated {doc.updatedAt}</span>
+              <span className="flex items-center gap-1"><Download className="w-3 h-3" />{doc.downloadCount.toLocaleString()}</span>
+            </div>
+            <button onClick={() => alert(`Downloading: ${doc.title} (Simulated)`)} className="w-full py-2 rounded-xl border-2 border-slate-200 text-sm font-bold text-slate-600 hover:border-generali-red hover:text-generali-red hover:bg-generali-red/5 transition-all flex items-center justify-center gap-2">
+              <Download className="w-4 h-4" /> Download
+            </button>
+          </motion.div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="col-span-full py-16 text-center">
+            <BookOpen className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400 font-medium">No documents found.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- ProductTour ---
 const ProductTour = ({ onComplete }: { onComplete: () => void }) => {
+
   const [step, setStep] = useState(0);
   const steps = [
     {
@@ -1843,6 +2213,10 @@ export default function App() {
         return <SearchPage onSelectInsured={setSelectedInsured} />;
       case "history":
         return <HistoryPage user={user} />;
+      case "users":
+        return <HospitalUserManagement />;
+      case "knowledge":
+        return <KnowledgeBasePage />;
       case "admin":
         return (
           <div className="p-8">
@@ -1884,8 +2258,17 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="font-bold text-slate-800 capitalize">
-              {activeTab.replace("-", " ")}
+            {user.role === "hospital_admin" && (
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-generali-red/10 rounded-lg">
+                  <Building2 className="w-4 h-4 text-generali-red" />
+                </div>
+                <span className="font-bold text-slate-800 text-sm">{user.hospital}</span>
+                <span className="w-px h-5 bg-slate-200 mx-1"></span>
+              </div>
+            )}
+            <h2 className="font-bold text-slate-600 capitalize text-sm">
+              {activeTab === "users" ? "User Management" : activeTab === "knowledge" ? "Knowledge Base" : activeTab.replace("-", " ")}
             </h2>
           </div>
           <div className="flex items-center gap-6">
@@ -1900,11 +2283,11 @@ export default function App() {
                   {user.username}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {user.role}
+                  {user.role === "hospital_admin" ? "Hospital Admin" : user.role}
                 </p>
               </div>
-              <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200">
-                <UserIcon className="w-6 h-6 text-slate-400" />
+              <div className="w-10 h-10 bg-generali-red/10 rounded-full flex items-center justify-center border border-generali-red/20">
+                <UserIcon className="w-5 h-5 text-generali-red" />
               </div>
             </div>
           </div>
