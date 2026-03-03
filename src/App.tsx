@@ -124,7 +124,7 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
           <div className="flex flex-col items-center justify-center">
             <div className="flex justify-center mb-4">
               <img
-                src="/images/logo.svg"
+                src="images/logo.svg"
                 alt="Generali logo"
                 className="h-32 w-auto p-2"
               />
@@ -247,7 +247,7 @@ const Sidebar = ({
       <div className="p-6 border-bottom border-slate-100">
         <div className="flex items-center gap-3 mb-6">
           <img
-            src="/images/logo.svg"
+            src="images/logo.svg"
             alt="Generali logo"
             className="h-8 w-auto"
           />
