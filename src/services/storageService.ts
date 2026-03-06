@@ -1,8 +1,10 @@
 
-import { User, Insured, Policy, Claim, Announcement, ClaimDocument, HospitalUser } from '../types';
+import { User, Insured, Policy, Claim, Announcement, ClaimDocument, HospitalUser, Hospital, GeneraliUser } from '../types';
 
 const STORAGE_KEYS = {
   USERS: 'generali_users',
+  HOSPITALS: 'generali_hospitals',
+  GENERALI_USERS: 'generali_internal_users',
   INSURED: 'generali_insured',
   POLICIES: 'generali_policies',
   CLAIMS: 'generali_claims',
@@ -11,10 +13,19 @@ const STORAGE_KEYS = {
   HOSPITAL_USERS: 'generali_hospital_users',
   INITIALIZED: 'generali_initialized'
 };
+const INITIAL_HOSPITALS: Hospital[] = [
+  { id: 1, name: 'Bangkok General Hospital', code: 'BGH', address: '123 Rama IV Rd, Bangkok', status: 'active', createdAt: '2025-01-01T00:00:00Z' },
+  { id: 2, name: 'Phuket International Hospital', code: 'PIH', address: '456 Patong Beach, Phuket', status: 'active', createdAt: '2025-02-15T00:00:00Z' }
+];
+
+const INITIAL_GENERALI_USERS: GeneraliUser[] = [
+  { id: 1, name: 'Admin User', email: 'admin@generali.th', username: 'admin', role: 'admin', department: 'IT Administration', status: 'active', lastLogin: '2026-03-01T10:00:00Z', createdAt: '2024-01-01T00:00:00Z' }
+];
 
 const INITIAL_HOSPITAL_USERS: HospitalUser[] = [
   {
     id: 1,
+    hospital_id: 1,
     name: 'Somchai Phongsakorn',
     email: 'somchai.p@bangkokgeneral.th',
     username: 'somchai.p',
@@ -26,6 +37,7 @@ const INITIAL_HOSPITAL_USERS: HospitalUser[] = [
   },
   {
     id: 2,
+    hospital_id: 1,
     name: 'Nattaya Jirakul',
     email: 'nattaya.j@bangkokgeneral.th',
     username: 'nattaya.j',
@@ -37,6 +49,7 @@ const INITIAL_HOSPITAL_USERS: HospitalUser[] = [
   },
   {
     id: 3,
+    hospital_id: 1,
     name: 'Wanchai Thongsuk',
     email: 'wanchai.t@bangkokgeneral.th',
     username: 'wanchai.t',
@@ -48,6 +61,7 @@ const INITIAL_HOSPITAL_USERS: HospitalUser[] = [
   },
   {
     id: 4,
+    hospital_id: 2,
     name: 'Prapha Limchaikul',
     email: 'prapha.l@bangkokgeneral.th',
     username: 'prapha.l',
@@ -59,6 +73,7 @@ const INITIAL_HOSPITAL_USERS: HospitalUser[] = [
   },
   {
     id: 5,
+    hospital_id: 2,
     name: 'Kittipong Sermsirichai',
     email: 'kittipong.s@bangkokgeneral.th',
     username: 'kittipong.s',
@@ -70,6 +85,7 @@ const INITIAL_HOSPITAL_USERS: HospitalUser[] = [
   },
   {
     id: 6,
+    hospital_id: 1,
     name: 'Malee Charoenwong',
     email: 'malee.c@bangkokgeneral.th',
     username: 'malee.c',
@@ -117,7 +133,7 @@ const INITIAL_DATA = {
   ]
 };
 
-const DATA_VERSION = '3'; // bump this whenever INITIAL_DATA changes
+const DATA_VERSION = '4'; // bump this whenever INITIAL_DATA changes
 
 export const initStorage = () => {
   const storedVersion = localStorage.getItem('generali_data_version');
@@ -131,6 +147,8 @@ export const initStorage = () => {
     localStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(INITIAL_DATA.announcements));
     localStorage.setItem(STORAGE_KEYS.CLAIMS, JSON.stringify(INITIAL_DATA.claims));
     localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.HOSPITALS, JSON.stringify(INITIAL_HOSPITALS));
+    localStorage.setItem(STORAGE_KEYS.GENERALI_USERS, JSON.stringify(INITIAL_GENERALI_USERS));
     localStorage.setItem(STORAGE_KEYS.HOSPITAL_USERS, JSON.stringify(INITIAL_HOSPITAL_USERS));
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
     localStorage.setItem('generali_data_version', DATA_VERSION);
@@ -139,6 +157,12 @@ export const initStorage = () => {
   // Ensure hospital users are seeded even for any edge case
   if (!localStorage.getItem(STORAGE_KEYS.HOSPITAL_USERS)) {
     localStorage.setItem(STORAGE_KEYS.HOSPITAL_USERS, JSON.stringify(INITIAL_HOSPITAL_USERS));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.HOSPITALS)) {
+    localStorage.setItem(STORAGE_KEYS.HOSPITALS, JSON.stringify(INITIAL_HOSPITALS));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.GENERALI_USERS)) {
+    localStorage.setItem(STORAGE_KEYS.GENERALI_USERS, JSON.stringify(INITIAL_GENERALI_USERS));
   }
 };
 
@@ -217,14 +241,20 @@ export const storageService = {
   getClaimHistory: async (): Promise<Claim[]> => {
     const claims = getItems<Claim>(STORAGE_KEYS.CLAIMS);
     const insuredList = getItems<Insured>(STORAGE_KEYS.INSURED);
+    const hospitals = getItems<Hospital>(STORAGE_KEYS.HOSPITALS);
 
     return claims.map(c => {
       const insured = insuredList.find(i => i.id === c.insured_id);
+      const mappedHospitalId = c.hospital_id || (c.id % 2 === 0 ? 2 : 1);
+      const hospitalName = hospitals.find(h => h.id === mappedHospitalId)?.name || 'Unknown Hospital';
+
       return {
         ...c,
         first_name: insured?.first_name || '',
         last_name: insured?.last_name || '',
-        policy_no: insured?.policy_no || ''
+        policy_no: insured?.policy_no || '',
+        hospital_id: mappedHospitalId,
+        hospital_name: hospitalName
       };
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
@@ -305,4 +335,99 @@ export const storageService = {
     setItems(STORAGE_KEYS.HOSPITAL_USERS, filtered);
     return { success: true };
   },
+
+  // Hospital Management
+  getHospitals: async (): Promise<Hospital[]> => {
+    return getItems<Hospital>(STORAGE_KEYS.HOSPITALS);
+  },
+
+  createHospital: async (data: Omit<Hospital, 'id' | 'createdAt'>): Promise<{ success: boolean, hospital: Hospital }> => {
+    const hospitals = getItems<Hospital>(STORAGE_KEYS.HOSPITALS);
+    const newHospital: Hospital = {
+      ...data,
+      id: hospitals.length > 0 ? Math.max(...hospitals.map(h => h.id)) + 1 : 1,
+      createdAt: new Date().toISOString(),
+    };
+    hospitals.push(newHospital);
+    setItems(STORAGE_KEYS.HOSPITALS, hospitals);
+    return { success: true, hospital: newHospital };
+  },
+
+  updateHospital: async (id: number, data: Partial<Hospital>): Promise<{ success: boolean }> => {
+    const hospitals = getItems<Hospital>(STORAGE_KEYS.HOSPITALS);
+    const index = hospitals.findIndex(h => h.id === id);
+    if (index !== -1) {
+      hospitals[index] = { ...hospitals[index], ...data };
+      setItems(STORAGE_KEYS.HOSPITALS, hospitals);
+      return { success: true };
+    }
+    return { success: false };
+  },
+
+  deleteHospital: async (id: number): Promise<{ success: boolean }> => {
+    const hospitals = getItems<Hospital>(STORAGE_KEYS.HOSPITALS);
+    setItems(STORAGE_KEYS.HOSPITALS, hospitals.filter(h => h.id !== id));
+    return { success: true };
+  },
+
+  // Generali User Management
+  getGeneraliUsers: async (): Promise<GeneraliUser[]> => {
+    return getItems<GeneraliUser>(STORAGE_KEYS.GENERALI_USERS);
+  },
+
+  createGeneraliUser: async (data: Omit<GeneraliUser, 'id' | 'lastLogin' | 'createdAt'>): Promise<{ success: boolean, user: GeneraliUser }> => {
+    const users = getItems<GeneraliUser>(STORAGE_KEYS.GENERALI_USERS);
+    const newUser: GeneraliUser = {
+      ...data,
+      id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
+      lastLogin: 'Never',
+      createdAt: new Date().toISOString(),
+    };
+    users.push(newUser);
+    setItems(STORAGE_KEYS.GENERALI_USERS, users);
+    return { success: true, user: newUser };
+  },
+
+  updateGeneraliUser: async (id: number, data: Partial<GeneraliUser>): Promise<{ success: boolean }> => {
+    const users = getItems<GeneraliUser>(STORAGE_KEYS.GENERALI_USERS);
+    const index = users.findIndex(u => u.id === id);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...data };
+      setItems(STORAGE_KEYS.GENERALI_USERS, users);
+      return { success: true };
+    }
+    return { success: false };
+  },
+
+  deleteGeneraliUser: async (id: number): Promise<{ success: boolean }> => {
+    const users = getItems<GeneraliUser>(STORAGE_KEYS.GENERALI_USERS);
+    setItems(STORAGE_KEYS.GENERALI_USERS, users.filter(u => u.id !== id));
+    return { success: true };
+  },
+
+  // Admin Dashboard Data
+  getAdminDashboardData: async () => {
+    const claims = getItems<Claim>(STORAGE_KEYS.CLAIMS);
+    const hospitals = getItems<Hospital>(STORAGE_KEYS.HOSPITALS);
+
+    // Aggregating mock claims data (since claims dont have hospital_id initially, we will randomly assign them or group them to BGH, PIH)
+    // To be realistic we assign them to hospital 1 or 2 based on ID odd/even
+    const claimsWithHospitals = claims.map(c => ({
+      ...c,
+      hospital_id: c.id % 2 === 0 ? 2 : 1
+    }));
+
+    return {
+      totalClaims: claims.length,
+      totalAmount: claims.reduce((sum, c) => sum + (c.amount || 0), 0),
+      approvedClaims: claims.filter(c => c.status === 'APPROVED' || c.status === 'PAID').length,
+      claimsByHospital: hospitals.map(h => ({
+        hospital: h.name,
+        count: claimsWithHospitals.filter(c => c.hospital_id === h.id).length,
+        approved: claimsWithHospitals.filter(c => c.hospital_id === h.id && (c.status === 'APPROVED' || c.status === 'PAID')).length,
+        rejected: claimsWithHospitals.filter(c => c.hospital_id === h.id && c.status === 'REJECTED').length,
+        amount: claimsWithHospitals.filter(c => c.hospital_id === h.id).reduce((sum, c) => sum + (c.amount || 0), 0)
+      }))
+    };
+  }
 };

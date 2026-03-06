@@ -42,6 +42,8 @@ import {
   ClaimDocument,
   Announcement,
   HospitalUser,
+  Hospital,
+  GeneraliUser,
 } from "./types";
 import { storageService, initStorage } from "./services/storageService";
 
@@ -244,9 +246,13 @@ const Sidebar = ({
   user: User;
 }) => {
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    {
+      id: "dashboard",
+      label: user.role === 'admin' ? "Administration" : "Dashboard",
+      icon: user.role === 'admin' ? UserIcon : LayoutDashboard
+    },
     { id: "search", label: "Policy Search", icon: Search },
-    { id: "history", label: "Claim History", icon: History },
+    { id: "history", label: "Claims", icon: History },
     {
       id: "users",
       label: "User Management",
@@ -258,12 +264,6 @@ const Sidebar = ({
       label: "Knowledge Base",
       icon: BookOpen,
       hidden: user.role !== "hospital_admin" && user.role !== "admin",
-    },
-    {
-      id: "admin",
-      label: "Administration",
-      icon: UserIcon,
-      hidden: user.role !== "admin",
     },
   ];
 
@@ -1262,8 +1262,11 @@ const HistoryPage = ({ user }: { user: User }) => {
     storageService.getDocuments(claimId).then((data) => setDocuments(data));
   };
 
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+
   useEffect(() => {
     fetchClaims();
+    storageService.getHospitals().then(data => setHospitals(data));
   }, []);
 
   useEffect(() => {
@@ -1271,6 +1274,13 @@ const HistoryPage = ({ user }: { user: User }) => {
       fetchDocuments(selectedClaim.id);
     }
   }, [selectedClaim]);
+
+  // Filtering and Sorting States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterHospital, setFilterHospital] = useState("ALL");
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
   const handleUpdateStatus = async () => {
     if (!selectedClaim) return;
@@ -1317,11 +1327,59 @@ const HistoryPage = ({ user }: { user: User }) => {
     alert(`Downloading ${fileName} (Simulated)`);
   };
 
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const filteredAndSortedClaims = claims
+    .filter((claim) => {
+      // Search
+      const searchStr = searchTerm.toLowerCase();
+      const matchesSearch =
+        `${claim.first_name} ${claim.last_name}`.toLowerCase().includes(searchStr) ||
+        claim.policy_no.toLowerCase().includes(searchStr);
+
+      // Filters
+      const matchesStatus = filterStatus === "ALL" || claim.status === filterStatus;
+      const matchesType = filterType === "ALL" || claim.claim_type === filterType;
+      const matchesHospital = filterHospital === "ALL" || claim.hospital_id?.toString() === filterHospital;
+
+      return matchesSearch && matchesStatus && matchesType && matchesHospital;
+    })
+    .sort((a, b) => {
+      let aVal: any = '';
+      let bVal: any = '';
+
+      if (sortConfig.key === 'id') {
+        aVal = a.id; bVal = b.id;
+      } else if (sortConfig.key === 'member') {
+        aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
+        bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
+      } else if (sortConfig.key === 'type') {
+        aVal = a.claim_type; bVal = b.claim_type;
+      } else if (sortConfig.key === 'date') {
+        aVal = new Date(a.treatment_date).getTime();
+        bVal = new Date(b.treatment_date).getTime();
+      } else if (sortConfig.key === 'amount') {
+        aVal = a.amount; bVal = b.amount;
+      } else if (sortConfig.key === 'status') {
+        aVal = a.status; bVal = b.status;
+      }
+
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+
   return (
     <div className="p-8 space-y-8">
       <header className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Claim History</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Claims</h1>
           <p className="text-slate-500 mt-1">
             Review and track the status of all submitted claims.
           </p>
@@ -1340,6 +1398,57 @@ const HistoryPage = ({ user }: { user: User }) => {
           </button>
         </div>
       </header>
+
+      <div className="generali-card p-6 flex flex-col md:flex-row gap-4 mb-8 bg-white shadow-sm border border-slate-200">
+        <div className="flex-1 min-w-[200px] relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-slate-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search by Member or Policy No..."
+            className="generali-input pl-10 w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <select
+          className="generali-input md:w-48"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
+          <option value="ALL">All Statuses</option>
+          {Object.keys(CLAIM_STATUSES).map(status => (
+            <option key={status} value={status}>{(CLAIM_STATUSES as any)[status].label}</option>
+          ))}
+        </select>
+
+        <select
+          className="generali-input md:w-48"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="ALL">All Types</option>
+          <option value="OPD">OPD</option>
+          <option value="IPD">IPD</option>
+          <option value="DENTAL">Dental</option>
+          <option value="ER">ER</option>
+        </select>
+
+        {(user.role === 'admin' || user.role === 'generali_user') && (
+          <select
+            className="generali-input md:w-48"
+            value={filterHospital}
+            onChange={(e) => setFilterHospital(e.target.value)}
+          >
+            <option value="ALL">All Hospitals</option>
+            {hospitals.map(h => (
+              <option key={h.id} value={h.id.toString()}>{h.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
 
       {showStatusTips && (
         <motion.div
@@ -1369,23 +1478,28 @@ const HistoryPage = ({ user }: { user: User }) => {
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Claim ID
+              <th onClick={() => requestSort('id')} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100">
+                Claim ID {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Member
+              <th onClick={() => requestSort('member')} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100">
+                Member {sortConfig.key === 'member' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Type
+              <th onClick={() => requestSort('type')} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100">
+                Type {sortConfig.key === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Date
+              {(user.role === 'admin' || user.role === 'generali_user') && (
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Hospital
+                </th>
+              )}
+              <th onClick={() => requestSort('date')} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100">
+                Date {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Amount
+              <th onClick={() => requestSort('amount')} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100">
+                Amount {sortConfig.key === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Status
+              <th onClick={() => requestSort('status')} className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100">
+                Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
               <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">
                 Action
@@ -1393,7 +1507,13 @@ const HistoryPage = ({ user }: { user: User }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {claims.map((claim) => {
+            {filteredAndSortedClaims.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                  No claims found matching your filters.
+                </td>
+              </tr>
+            ) : filteredAndSortedClaims.map((claim) => {
               const statusInfo = (CLAIM_STATUSES as any)[claim.status] || {
                 label: claim.status,
                 color: "slate",
@@ -1417,6 +1537,11 @@ const HistoryPage = ({ user }: { user: User }) => {
                       {claim.claim_type}
                     </span>
                   </td>
+                  {(user.role === 'admin' || user.role === 'generali_user') && (
+                    <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[150px]">
+                      {claim.hospital_name}
+                    </td>
+                  )}
                   <td className="px-6 py-4 text-sm text-slate-600">
                     {claim.treatment_date}
                   </td>
@@ -2168,6 +2293,283 @@ const ProductTour = ({ onComplete }: { onComplete: () => void }) => {
   );
 };
 
+// --- Admin Panel Views ---
+const AdminDashboard = () => {
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    storageService.getAdminDashboardData().then(setData);
+  }, []);
+
+  if (!data) return <div className="p-8">Loading dashboard...</div>;
+
+  const claimByHospitalChart = {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: '0%', left: 'center' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      data: data.claimsByHospital.map((h: any) => ({ value: h.count, name: h.hospital })),
+      emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+    }]
+  };
+
+  const hospitalSuccessChart = {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { data: ['Approved', 'Rejected'], bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+    xAxis: { type: 'category', data: data.claimsByHospital.map((h: any) => h.hospital) },
+    yAxis: { type: 'value' },
+    series: [
+      { name: 'Approved', type: 'bar', stack: 'total', data: data.claimsByHospital.map((h: any) => h.approved), itemStyle: { color: '#10b981' } },
+      { name: 'Rejected', type: 'bar', stack: 'total', data: data.claimsByHospital.map((h: any) => h.rejected), itemStyle: { color: '#ef4444' } }
+    ]
+  };
+
+  const financialChart = {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    legend: { data: ['Amount (THB)'], bottom: 0 },
+    xAxis: { type: 'value' },
+    yAxis: { type: 'category', data: data.claimsByHospital.map((h: any) => h.hospital) },
+    series: [
+      { name: 'Amount (THB)', type: 'bar', data: data.claimsByHospital.map((h: any) => h.amount), itemStyle: { color: '#3b82f6' } }
+    ]
+  };
+
+  return (
+    <div className="p-8 space-y-6">
+      <header>
+        <h1 className="text-3xl font-bold text-slate-900">System Dashboard</h1>
+        <p className="text-slate-500 mt-1">Cross-hospital claim metrics and performance.</p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="generali-card p-6">
+          <p className="text-sm text-slate-500">Total Claims</p>
+          <p className="text-3xl font-bold text-slate-900">{data.totalClaims}</p>
+        </div>
+        <div className="generali-card p-6">
+          <p className="text-sm text-slate-500">Total Approved</p>
+          <p className="text-3xl font-bold text-emerald-600">{data.approvedClaims}</p>
+        </div>
+        <div className="generali-card p-6">
+          <p className="text-sm text-slate-500">Total Payout (This Week)</p>
+          <p className="text-3xl font-bold text-blue-600">฿{data.totalAmount.toLocaleString()}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="generali-card p-6">
+          <h2 className="font-bold text-lg mb-4">Claim Volume by Hospital</h2>
+          <ReactECharts option={claimByHospitalChart} style={{ height: 300 }} />
+        </div>
+        <div className="generali-card p-6">
+          <h2 className="font-bold text-lg mb-4">Success Rate by Hospital</h2>
+          <ReactECharts option={hospitalSuccessChart} style={{ height: 300 }} />
+        </div>
+        <div className="generali-card p-6 lg:col-span-2">
+          <h2 className="font-bold text-lg mb-4">Financial Payout by Hospital</h2>
+          <ReactECharts option={financialChart} style={{ height: 300 }} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HospitalManagement = () => {
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null);
+  const [form, setForm] = useState({ name: '', code: '', address: '', status: 'active' as 'active' | 'inactive' });
+
+  const fetchHospitals = () => storageService.getHospitals().then(setHospitals);
+  useEffect(() => { fetchHospitals(); }, []);
+
+  const openCreate = () => { setEditingHospital(null); setForm({ name: '', code: '', address: '', status: 'active' }); setShowModal(true); };
+  const openEdit = (h: Hospital) => { setEditingHospital(h); setForm({ name: h.name, code: h.code, address: h.address, status: h.status }); setShowModal(true); };
+
+  const handleSave = async () => {
+    if (editingHospital) await storageService.updateHospital(editingHospital.id, form);
+    else await storageService.createHospital(form);
+    fetchHospitals(); setShowModal(false);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Delete hospital?')) { await storageService.deleteHospital(id); fetchHospitals(); }
+  };
+
+  return (
+    <div className="p-8 space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Partner Hospitals</h2>
+        <button onClick={openCreate} className="generali-btn-primary py-2 px-4 shadow-sm text-sm"><Building2 className="w-4 h-4 mr-2 inline" />Add Hospital</button>
+      </div>
+      <div className="generali-card overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Code</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Hospital Name</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {hospitals.map(h => (
+              <tr key={h.id} className="hover:bg-slate-50">
+                <td className="px-6 py-4 font-mono text-sm text-slate-500">{h.code}</td>
+                <td className="px-6 py-4 font-bold text-slate-800">{h.name}</td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${h.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{h.status}</span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button onClick={() => openEdit(h)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(h.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="font-bold text-xl mb-4">{editingHospital ? 'Edit Hospital' : 'Add Hospital'}</h3>
+            <div className="space-y-4">
+              <div><label className="block text-sm font-medium mb-1">Code</label><input type="text" className="generali-input" value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} /></div>
+              <div><label className="block text-sm font-medium mb-1">Name</label><input type="text" className="generali-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+              <div><label className="block text-sm font-medium mb-1">Address</label><input type="text" className="generali-input" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select className="generali-input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value as any })}>
+                  <option value="active">Active</option><option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
+              <button onClick={handleSave} className="generali-btn-primary px-6 py-2">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const GeneraliUserManagement = () => {
+  const [users, setUsers] = useState<GeneraliUser[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<GeneraliUser | null>(null);
+  const [form, setForm] = useState({ name: '', email: '', username: '', role: 'admin' as const, department: '', status: 'active' as 'active' | 'inactive' });
+
+  const fetchUsers = () => storageService.getGeneraliUsers().then(setUsers);
+  useEffect(() => { fetchUsers(); }, []);
+
+  const openCreate = () => { setEditingUser(null); setForm({ name: '', email: '', username: '', role: 'admin', department: '', status: 'active' }); setShowModal(true); };
+  const openEdit = (u: GeneraliUser) => { setEditingUser(u); setForm({ name: u.name, email: u.email, username: u.username, role: u.role, department: u.department, status: u.status }); setShowModal(true); };
+
+  const handleSave = async () => {
+    if (editingUser) await storageService.updateGeneraliUser(editingUser.id, form);
+    else await storageService.createGeneraliUser(form);
+    fetchUsers(); setShowModal(false);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Delete user?')) { await storageService.deleteGeneraliUser(id); fetchUsers(); }
+  };
+
+  return (
+    <div className="p-8 space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Generali Internal Users</h2>
+        <button onClick={openCreate} className="generali-btn-primary py-2 px-4 shadow-sm text-sm"><UserPlus className="w-4 h-4 mr-2 inline" />Add Admin</button>
+      </div>
+      <div className="generali-card overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">User</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Department</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {users.map(u => (
+              <tr key={u.id} className="hover:bg-slate-50">
+                <td className="px-6 py-4">
+                  <p className="font-bold text-slate-800">{u.name}</p>
+                  <p className="text-xs text-slate-500">{u.email}</p>
+                </td>
+                <td className="px-6 py-4 text-sm text-slate-600">{u.department}</td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${u.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{u.status}</span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button onClick={() => openEdit(u)} className="text-blue-600 hover:text-blue-800 mr-3"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleDelete(u.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="font-bold text-xl mb-4">{editingUser ? 'Edit User' : 'Add User'}</h3>
+            <div className="space-y-4">
+              <div><label className="block text-sm font-medium mb-1">Name</label><input type="text" className="generali-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+              <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" className="generali-input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+              <div><label className="block text-sm font-medium mb-1">Username</label><input type="text" className="generali-input" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></div>
+              <div><label className="block text-sm font-medium mb-1">Department</label><input type="text" className="generali-input" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} /></div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
+              <button onClick={handleSave} className="generali-btn-primary px-6 py-2">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AdminPanel = () => {
+  const [tab, setTab] = useState('dashboard');
+
+  return (
+    <div className="flex flex-col h-full bg-slate-50">
+      <div className="bg-white border-b border-slate-200 px-8 py-4 flex gap-6">
+        {[
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+          { id: 'hospitals', label: 'Hospitals', icon: Building2 },
+          { id: 'hospital_users', label: 'Hospital Users', icon: Users },
+          { id: 'internal_users', label: 'Generali Admins', icon: UserIcon }
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${tab === t.id ? 'bg-generali-red text-white shadow-md shadow-generali-red/20' : 'text-slate-500 hover:bg-slate-100'}`}
+          >
+            <t.icon className="w-4 h-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-auto">
+        {tab === 'dashboard' && <AdminDashboard />}
+        {tab === 'hospitals' && <HospitalManagement />}
+        {tab === 'hospital_users' && <HospitalUserManagement />}
+        {tab === 'internal_users' && <GeneraliUserManagement />}
+      </div>
+    </div>
+  );
+};
+
+
 // --- Main App ---
 
 export default function App() {
@@ -2208,7 +2610,7 @@ export default function App() {
 
     switch (activeTab) {
       case "dashboard":
-        return <Dashboard onSearchClick={() => setActiveTab("search")} />;
+        return user.role === 'admin' ? <AdminPanel /> : <Dashboard onSearchClick={() => setActiveTab("search")} />;
       case "search":
         return <SearchPage onSelectInsured={setSelectedInsured} />;
       case "history":
@@ -2217,17 +2619,8 @@ export default function App() {
         return <HospitalUserManagement />;
       case "knowledge":
         return <KnowledgeBasePage />;
-      case "admin":
-        return (
-          <div className="p-8">
-            <h1 className="text-2xl font-bold">Admin Panel</h1>
-            <p className="text-slate-500">
-              User management and system configuration.
-            </p>
-          </div>
-        );
       default:
-        return <Dashboard onSearchClick={() => setActiveTab("search")} />;
+        return user.role === 'admin' ? <AdminPanel /> : <Dashboard onSearchClick={() => setActiveTab("search")} />;
     }
   };
 

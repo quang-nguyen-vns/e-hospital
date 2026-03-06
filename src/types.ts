@@ -7,8 +7,30 @@ export interface User {
   hospitalName?: string;
 }
 
+export interface Hospital {
+  id: number;
+  name: string;
+  code: string;
+  address: string;
+  status: 'active' | 'inactive';
+  createdAt: string;
+}
+
+export interface GeneraliUser {
+  id: number;
+  name: string;
+  email: string;
+  username: string;
+  role: 'admin';
+  department: string;
+  status: 'active' | 'inactive';
+  lastLogin: string;
+  createdAt: string;
+}
+
 export interface HospitalUser {
   id: number;
+  hospital_id: number;
   name: string;
   email: string;
   username: string;
@@ -58,6 +80,8 @@ export interface Claim {
   status: string;
   admin_comments?: string;
   created_at: string;
+  hospital_id?: number;
+  hospital_name?: string;
 }
 
 export interface ClaimDocument {
